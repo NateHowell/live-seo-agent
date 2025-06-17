@@ -149,17 +149,14 @@
             if (!url.startsWith('http://') && !url.startsWith('https://')) { url = 'https://' + url; }
 
             try {
-                const proxyUrl = `https://thingproxy.freeboard.io/fetch/${url}`;
+                // This is the older proxy that was working for you
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
                 const response = await fetch(proxyUrl);
-                
-                if (!response.ok) { 
-                    throw new Error(`Could not fetch the URL. Proxy returned status: ${response.status}. The site might be blocking it.`); 
-                }
+                if (!response.ok) { throw new Error(`Could not fetch the URL. The proxy returned status: ${response.status}. The site might be blocking it.`); }
 
-                const htmlContent = await response.text();
-                if (!htmlContent) { 
-                    throw new Error("Could not get website content from the proxy."); 
-                }
+                const data = await response.json();
+                const htmlContent = data.contents;
+                if (!htmlContent) { throw new Error("Could not get website content from the proxy."); }
 
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(htmlContent, 'text/html');
@@ -260,8 +257,8 @@
 
         pdfButton.addEventListener('click', () => {
              const { jsPDF } = window;
-             // Select only the content part for the PDF, excluding the header with the download button
-             const reportElement = document.getElementById('pdf-content'); 
+             // This is the original, buggy PDF code.
+             const reportElement = document.getElementById('report-container'); 
              const url = urlInput.value || 'report';
              const filename = `SEO-Report-${url.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0]}.pdf`;
 
@@ -269,26 +266,13 @@
 
             html2canvas(reportElement, { scale: 2, useCORS: true }).then(canvas => {
                 reportElement.classList.remove('pdf-render-state');
-                
                 const imgData = canvas.toDataURL('image/png');
-                const imgWidth = 210; // A4 width in mm
-                const pageHeight = 297; // A4 height in mm
-                const imgHeight = canvas.height * imgWidth / canvas.width;
-                let heightLeft = imgHeight;
-                let position = 0;
-                
-                const pdf = new jsPDF('p', 'mm', 'a4');
-                
-                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-                heightLeft -= pageHeight;
-                
-                while (heightLeft > 0) {
-                  position = heightLeft - imgHeight;
-                  pdf.addPage();
-                  pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-                  heightLeft -= pageHeight;
-                }
-                
+                const pdf = new jsPDF({
+                    orientation: 'p',
+                    unit: 'px',
+                    format: [canvas.width, canvas.height]
+                });
+                pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
                 pdf.save(filename);
             });
         });
