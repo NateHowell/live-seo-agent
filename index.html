@@ -15,10 +15,10 @@
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .score-circle { width: 120px; height: 120px; border-radius: 50%; display: flex; justify-content: center; align-items: center; flex-direction: column; font-size: 1.5rem; font-weight: bold; line-height: 1; }
         .score-text { font-size: 0.8rem; font-weight: 500; margin-top: 4px; }
-        .pdf-render-state { background: white !important; padding: 2rem; font-size: 16px; }
-        .pdf-render-state h2, .pdf-render-state h3, .pdf-render-state div, .pdf-render-state li, .pdf-render-state strong, .pdf-render-state span { color: black !important; }
-        .pdf-render-state h2 { font-size: 26px; }
-        .pdf-render-state h3 { font-size: 20px; }
+        .pdf-render-state { background: white !important; padding: 1.5rem; font-size: 16px; border: none; box-shadow: none;}
+        .pdf-render-state h2, .pdf-render-state h3, .pdf-render-state div, .pdf-render-state li, .pdf-render-state strong, .pdf-render-state span, .pdf-render-state p { color: black !important; }
+        .pdf-render-state h2 { font-size: 24px; }
+        .pdf-render-state h3 { font-size: 18px; }
     </style>
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
@@ -30,6 +30,12 @@
             </div>
 
             <div class="space-y-6">
+                <div>
+                    <label for="api-key-input" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Your Google AI API Key</label>
+                    <input type="password" id="api-key-input" class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition duration-300" placeholder="Paste your API key here">
+                    <p class="text-xs text-gray-500 mt-1">Get your free key from <a href="https://aistudio.google.com/" target="_blank" class="text-blue-500 hover:underline">Google AI Studio</a>. Your key is not stored.</p>
+                    <p id="api-key-error" class="text-red-500 text-sm mt-1 hidden"></p>
+                </div>
                 <div>
                     <label for="url-input" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Website URL</label>
                     <input type="url" id="url-input" class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition duration-300" placeholder="https://example.com">
@@ -46,15 +52,17 @@
             </div>
 
             <div id="report-container" class="mt-10 hidden">
-                 <div class="flex justify-between items-center mb-4 border-b pb-2">
+                 <div id="pdf-header" class="flex justify-between items-center mb-4 border-b pb-2">
                      <h2 class="text-2xl font-bold text-gray-800 dark:text-white">SEO Audit Report</h2>
                      <button id="pdf-button" class="hidden bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white font-bold py-2 px-4 rounded-lg inline-flex items-center">
                         <svg class="w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                         <span>Download PDF</span>
                     </button>
                  </div>
-                 <div id="score-container" class="hidden justify-center my-6"></div>
-                 <div id="report-content" class="space-y-6"></div>
+                 <div id="pdf-content">
+                     <div id="score-container" class="hidden justify-center my-6"></div>
+                     <div id="report-content" class="space-y-6"></div>
+                 </div>
             </div>
 
              <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center hidden">
@@ -70,8 +78,8 @@
     </div>
 
     <script>
+        const apiKeyInput = document.getElementById('api-key-input');
         const urlInput = document.getElementById('url-input');
-        const emailInput = document.getElementById('email-input');
         const auditButton = document.getElementById('audit-button');
         const buttonText = document.getElementById('button-text');
         const loader = document.getElementById('loader');
@@ -79,16 +87,24 @@
         const reportContent = document.getElementById('report-content');
         const scoreContainer = document.getElementById('score-container');
         const pdfButton = document.getElementById('pdf-button');
+        const apiKeyError = document.getElementById('api-key-error');
         const urlError = document.getElementById('url-error');
-        const emailError = document.getElementById('email-error');
         const modal = document.getElementById('modal');
         const modalTitle = document.getElementById('modal-title');
         const modalMessage = document.getElementById('modal-message');
         const modalClose = document.getElementById('modal-close');
-
+        
         function validateInputs() {
             let isValid = true;
+            apiKeyError.classList.add('hidden');
             urlError.classList.add('hidden');
+
+            if (!apiKeyInput.value) {
+                apiKeyError.textContent = 'Please enter your Google AI API Key.';
+                apiKeyError.classList.remove('hidden');
+                isValid = false;
+            }
+
             if (!urlInput.value || !/^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/.test(urlInput.value)) {
                 urlError.textContent = 'Please enter a valid website URL.';
                 urlError.classList.remove('hidden');
@@ -110,7 +126,7 @@
                 auditButton.classList.remove('cursor-not-allowed', 'opacity-75');
             }
         }
-
+        
         function showModal(title, message) {
             modalTitle.textContent = title;
             modalMessage.textContent = message;
@@ -133,15 +149,32 @@
             if (!url.startsWith('http://') && !url.startsWith('https://')) { url = 'https://' + url; }
 
             try {
-                const serverlessUrl = `/.netlify/functions/audit?url=${encodeURIComponent(url)}`;
-                const response = await fetch(serverlessUrl);
-                const data = await response.json();
+                // Using the browser-based proxy that was previously working
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+                const response = await fetch(proxyUrl);
+                if (!response.ok) { throw new Error(`Could not fetch the URL. The proxy returned status: ${response.status}. The site might be blocking it.`); }
 
-                if (!response.ok) {
-                    throw new Error(data.error || 'An unknown server error occurred.');
-                }
+                const data = await response.json();
+                const htmlContent = data.contents;
+                if (!htmlContent) { throw new Error("Could not get website content from the proxy."); }
+
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(htmlContent, 'text/html');
                 
-                displayReport(data.report);
+                const images = Array.from(doc.querySelectorAll('img'));
+                const auditData = {
+                    title: doc.querySelector('title')?.innerText || 'Not found',
+                    description: doc.querySelector('meta[name="description"]')?.getAttribute('content') || 'Not found',
+                    h1s: Array.from(doc.querySelectorAll('h1')).map(h1 => h1.innerText),
+                    imagesCount: images.length,
+                    missingAltTags: images.filter(img => !img.alt || img.alt.trim() === '').length,
+                    hasViewportTag: doc.querySelector('meta[name="viewport"]') !== null,
+                    url: url,
+                };
+
+                const fullReportText = await generateAIReport(auditData, apiKeyInput.value);
+                displayReport(fullReportText);
+                
                 showModal('Success!', `Your SEO audit for ${urlInput.value} has been generated.`);
 
             } catch (error) {
@@ -151,6 +184,43 @@
                 showLoading(false);
             }
         });
+        
+        async function generateAIReport(auditData, apiKey) {
+            const prompt = `
+                You are an expert SEO consultant. Analyze the following SEO data for the website: ${auditData.url}.
+
+                **SEO Audit Data:**
+                - Meta Title: "${auditData.title}" (Length: ${auditData.title.length})
+                - Meta Description: "${auditData.description}" (Length: ${auditData.description.length})
+                - H1 Headings Count: ${auditData.h1s.length}
+                - Mobile-Friendly (Viewport Tag): ${auditData.hasViewportTag ? 'Yes' : 'No'}
+                - Image SEO: Found ${auditData.imagesCount} images. ${auditData.missingAltTags} are missing 'alt' text.
+
+                **Your Task:**
+                1.  **Calculate a Score:** On the very first line, provide an "Overall SEO Score" out of 100. Format: "Overall SEO Score: [score]/100".
+                2.  **Write the Report:** Generate a markdown report with sections: Overall Summary, What's Good, Areas for Improvement, Next Steps.`;
+
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
+
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const errorBody = await response.json();
+                throw new Error(`API Error: ${response.status} ${errorBody.error.message}`);
+            }
+            
+            const result = await response.json();
+            if (result.candidates?.[0]?.content?.parts?.[0]?.text) {
+                return result.candidates[0].content.parts[0].text;
+            } else {
+                throw new Error("Invalid AI response structure.");
+            }
+        }
 
         function displayReport(fullReportText) {
             const lines = fullReportText.split('\n');
@@ -185,9 +255,9 @@
             pdfButton.classList.remove('hidden');
         }
 
-    pdfButton.addEventListener('click', () => {
+        // CORRECTED PDF Generation logic
+        pdfButton.addEventListener('click', () => {
              const { jsPDF } = window;
-             // We select the content div, not the whole container, to make a cleaner PDF
              const reportElement = document.getElementById('pdf-content'); 
              const url = urlInput.value || 'report';
              const filename = `SEO-Report-${url.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0]}.pdf`;
@@ -195,27 +265,25 @@
             reportElement.classList.add('pdf-render-state');
 
             html2canvas(reportElement, { 
-                scale: 2, // Use a higher scale for better resolution
+                scale: 2,
                 useCORS: true 
             }).then(canvas => {
                 reportElement.classList.remove('pdf-render-state');
                 
                 const imgData = canvas.toDataURL('image/png');
-                const imgWidth = 190; // A4 width in mm, with a 10mm margin on each side
-                const pageHeight = 277; // A4 height in mm, with a 10mm margin on top/bottom
+                const imgWidth = 190;
+                const pageHeight = 277;
                 const imgHeight = canvas.height * imgWidth / canvas.width;
                 let heightLeft = imgHeight;
-                let position = 10; // Top margin for the first page
+                let position = 10;
                 
                 const pdf = new jsPDF('p', 'mm', 'a4');
                 
-                // Add the first page
                 pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
                 heightLeft -= pageHeight;
                 
-                // Add new pages if the content is longer than one page
                 while (heightLeft > 0) {
-                  position = heightLeft - imgHeight + 10; // Recalculate position for the new page
+                  position = heightLeft - imgHeight + 10;
                   pdf.addPage();
                   pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
                   heightLeft -= pageHeight;
@@ -223,5 +291,7 @@
                 
                 pdf.save(filename);
             });
-        });        });</body>
+        });
+    </script>
+</body>
 </html>
