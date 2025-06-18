@@ -185,29 +185,43 @@
             pdfButton.classList.remove('hidden');
         }
 
-        pdfButton.addEventListener('click', () => {
+       pdfButton.addEventListener('click', () => {
              const { jsPDF } = window;
-             const reportElement = document.getElementById('report-container');
+             // We select the content div, not the whole container, to make a cleaner PDF
+             const reportElement = document.getElementById('pdf-content'); 
              const url = urlInput.value || 'report';
              const filename = `SEO-Report-${url.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0]}.pdf`;
 
             reportElement.classList.add('pdf-render-state');
 
             html2canvas(reportElement, { 
-                scale: 3,
+                scale: 2, // Use a higher scale for better resolution
                 useCORS: true 
             }).then(canvas => {
                 reportElement.classList.remove('pdf-render-state');
+                
                 const imgData = canvas.toDataURL('image/png');
-                const pdf = new jsPDF({
-                    orientation: 'p',
-                    unit: 'px',
-                    format: [canvas.width, canvas.height]
-                });
-                pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+                const imgWidth = 190; // A4 width in mm, with a 10mm margin on each side
+                const pageHeight = 277; // A4 height in mm, with a 10mm margin on top/bottom
+                const imgHeight = canvas.height * imgWidth / canvas.width;
+                let heightLeft = imgHeight;
+                let position = 10; // Top margin for the first page
+                
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                
+                // Add the first page
+                pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+                
+                // Add new pages if the content is longer than one page
+                while (heightLeft > 0) {
+                  position = heightLeft - imgHeight + 10; // Recalculate position for the new page
+                  pdf.addPage();
+                  pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+                  heightLeft -= pageHeight;
+                }
+                
                 pdf.save(filename);
             });
-        });
-    </script>
-</body>
+        });</body>
 </html>
