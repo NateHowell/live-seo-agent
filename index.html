@@ -185,7 +185,7 @@
             pdfButton.classList.remove('hidden');
         }
 
-       pdfButton.addEventListener('click', () => {
+    pdfButton.addEventListener('click', () => {
              const { jsPDF } = window;
              // We select the content div, not the whole container, to make a cleaner PDF
              const reportElement = document.getElementById('pdf-content'); 
@@ -223,5 +223,5 @@
                 
                 pdf.save(filename);
             });
-        });</body>
+        });        });</body>
 </html>
